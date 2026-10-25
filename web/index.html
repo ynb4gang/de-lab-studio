@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DE Lab Studio</title>
+<style>
+:root{font-family:Inter,system-ui,Arial;background:#0c1422;color:#e8f0fa}*{box-sizing:border-box}
+body{margin:0}header{padding:24px 5%;background:#111d31;border-bottom:1px solid #24364a}
+main{max-width:1140px;margin:auto;padding:24px}h1{margin:0 0 8px;font-size:26px}h2{font-size:19px}
+small,.sub{color:#99aabe}nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}button,select{background:#192b44;border:1px solid #37506d;color:#eaf1ff;padding:10px 13px;border-radius:9px;cursor:pointer}
+button:hover{background:#274366}button.primary{background:#316be2;border-color:#316be2}button:disabled{opacity:.5}
+.panel{background:#121f31;border:1px solid #293e57;border-radius:14px;padding:20px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+textarea{width:100%;min-height:180px;background:#0b1524;color:#e9f3ff;border:1px solid #38516c;border-radius:9px;padding:12px;font:14px/1.5 ui-monospace,monospace}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0a1423;padding:15px;border-radius:8px;max-height:440px;overflow:auto}
+.field{margin:10px 0} .muted{color:#97adc3} .pill{display:inline-block;padding:3px 9px;border-radius:20px;background:#263a53;color:#afd1ff}
+</style>
+<header><h1>◈ DE Lab Studio</h1><div class="sub">Local-first Data Engineering Workspace • No telemetry • Docker on demand</div>
+<nav><button onclick="tab('services')">Services</button><button onclick="tab('sql')">SQL Practice</button><button onclick="tab('ai')">Local Qwen Tutor</button><button onclick="tab('design')">System Design</button></nav></header>
+<main><div id="content"></div><section class="panel"><h2>Activity</h2><pre id="output">Ready.</pre></section></main>
+<script>
+let INFO={}, MODELS=[];
+const el=id=>document.getElementById(id), out=obj=>el('output').textContent=typeof obj==='string'?obj:JSON.stringify(obj,null,2);
+async function api(path,body){try{let r=await fetch('/api/'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});return await r.json()}catch(e){return {error:String(e)}}}
+async function boot(){INFO=await api('info'); const m=await api('models');MODELS=(m.models||[]).map(x=>x.name); tab('services')}
+function tab(name){const c=el('content');
+if(name==='services'){c.innerHTML='<h2>Infrastructure</h2><div class="grid">'+Object.entries(INFO.profiles||{}).map(([p,s])=>`<div class="panel"><h2>${p}</h2><p class="muted">${s.join(' · ')}</p><button class="primary" onclick="profile('${p}','start')">Start</button> <button onclick="profile('${p}','stop')">Exit & Stop</button></div>`).join('')+'</div><button onclick="status()">Check Docker status</button>'}
+if(name==='sql'){c.innerHTML='<div class="panel"><h2>SQL Academy</h2><select id="sqltask" onchange="sqlSelect()">'+INFO.tasks.map(t=>`<option value="${t.id}">${t.title}</option>`).join('')+'</select><p id="taskprompt"></p><textarea id="sql" spellcheck="false" placeholder="SELECT ..."></textarea><div class="field"><button onclick="hint()">Hint</button> <button class="primary" onclick="grade()">Check SQL</button></div></div>';sqlSelect()}
+if(name==='ai'||name==='design'){let design=name==='design';c.innerHTML=`<div class="panel"><h2>${design?'System Design Reviewer':'Local AI Tutor'}</h2><p class="muted">Runs locally through Ollama. Model is not proof of correctness.</p><select id="model">${MODELS.map(m=>`<option>${m}</option>`).join('')}</select><textarea id="question" placeholder="${design?'Describe workload, functional/nonfunctional requirements, architecture and tradeoffs...':'Ask about Python, Spark, Flink, Kafka, Airflow, algorithms...'}"></textarea><button class="primary" onclick="ask('${design?'system-design':'tutor'}')">Ask local model</button></div>`}
+}
+async function profile(profile,action){out('Updating '+profile+'...');out(await api('profile',{profile,action}))}
+async function status(){out(await api('status'))}
+function task(){return INFO.tasks.find(t=>t.id===el('sqltask').value)}
+function sqlSelect(){el('taskprompt').textContent=task().prompt;el('sql').value=''}
+function hint(){out(task().hint)}
+async function grade(){out(await api('grade',{id:task().id,sql:el('sql').value}))}
+async function ask(mode){out('Generating answer locally...');out(await api('ai',{mode,model:el('model').value,question:el('question').value}))}
+boot()
+</script></html>
