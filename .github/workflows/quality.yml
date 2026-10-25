@@ -1,0 +1,26 @@
+name: quality
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile Python
+        run: python -m py_compile app.py
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Check Compose syntax
+        run: docker compose config --quiet
+      - name: Scan for tracked sensitive files
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env$|\.env\.|id_rsa$|.*\.gguf$|.*\.safetensors$|.*\.sqlite3?$)'; then
+            echo "Potential sensitive or machine-local artifact found"
+            exit 1
+          fi
